@@ -22,53 +22,32 @@ class SignService(
 
     fun signTransaction(request: SegwitBitcoinTransactionRequestDTO): SignBitcoinTransactionResponseDTO {
 
+        val toAddr = Address.fromString(networkParameters, request.destinationAddress)
+        val fromAddress = Address.fromKey(networkParameters, getKey(request.sourceAddress), Script.ScriptType.P2WPKH)
+
         val transaction = Transaction(networkParameters)
 
         transaction.addOutput(
             Coin.valueOf(calculateChange(request)),
-            Address.fromString(networkParameters, request.sourceAddress)
+            fromAddress
         )
 
         transaction.addOutput(
             Coin.valueOf(request.amount),
-            Address.fromString(networkParameters, request.destinationAddress)
+            toAddr
         )
 
-        //Add inputs
-        val address = Address.fromString(
-            networkParameters, request.sourceAddress
-        )
 
         val key = getKey(request.sourceAddress)
 
         request.utxo.forEach {
             val outPoint = TransactionOutPoint(networkParameters, it.outputIndex, Sha256Hash.wrap(it.prevHash))
-            val input = TransactionInput(
-                networkParameters,
-                transaction,
-                ByteArray(0),
+            transaction.addSignedInput(
                 outPoint,
-                Coin.valueOf(it.outputValue)
-            )
-            transaction.addInput(input)
-        }
-
-
-        for (input in transaction.inputs) {
-            val index = input.index
-            val scriptPubKey = ScriptBuilder.createOutputScript(address)
-
-            val signature =
-                getSegwitTransactionKey(
-                    transaction,
-                    index,
-                    scriptPubKey,
-                    key,
-                    request.utxo[index].outputValue.toBigDecimal()
-                )
-            input.witness = TransactionWitness.redeemP2WPKH(signature, key)
-            input.scriptSig = ScriptBuilder.createEmpty()
-
+                ScriptBuilder.createOutputScript(fromAddress),
+                Coin.valueOf(it.outputValue),
+                key
+            );
         }
 
         transaction.verify()
