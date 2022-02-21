@@ -23,7 +23,7 @@ class SignService(
     fun signTransaction(request: SegwitBitcoinTransactionRequestDTO): SignBitcoinTransactionResponseDTO {
 
         val toAddr = Address.fromString(networkParameters, request.destinationAddress)
-        val fromAddress = Address.fromKey(networkParameters, getKey(request.sourceAddress), Script.ScriptType.P2WPKH)
+        val fromAddress = Address.fromString(networkParameters, request.sourceAddress)
 
         val transaction = Transaction(networkParameters)
 
